@@ -50,8 +50,8 @@ const followRoutes = require('./routes/followRoutes');
 app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/likes', likeRoutes);
-// app.use('/api/comments', commentRoutes);
-// app.use('/api/follows', followRoutes);
+app.use('/api/comments', commentRoutes);
+app.use('/api/follows', followRoutes);
 
 
 
