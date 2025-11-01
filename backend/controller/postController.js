@@ -52,11 +52,53 @@ const createPost = async (req, res) => {
 
 const getAllPosts = async (req, res) => {
   try {
-    const posts = await Post.find()
-      .populate("user", "username avatarUrl") // fetch user info
-      .sort({ createdAt: -1 }); // newest first
+    // Pagination parameters with validation
+    let page = parseInt(req.query.page) || 1;
+    let limit = parseInt(req.query.limit) || 10;
 
-    res.status(200).json(posts);
+    // Ensure positive values and cap limit
+    if (page < 1) page = 1;
+    if (limit < 1) limit = 10;
+    if (limit > 100) limit = 100; // Cap at 100 to prevent abuse
+
+    const skip = (page - 1) * limit;
+
+    // Search parameter
+    const search = req.query.search || '';
+
+    // Build search query
+    let query = {};
+    if (search) {
+      query = {
+        $or: [
+          { title: { $regex: search, $options: 'i' } },
+          { caption: { $regex: search, $options: 'i' } }
+        ]
+      };
+    }
+
+    // Get total count for pagination
+    const total = await Post.countDocuments(query);
+    const totalPages = limit > 0 ? Math.ceil(total / limit) : 0;
+
+    // Fetch posts with pagination
+    const posts = await Post.find(query)
+      .populate("user", "username avatarUrl") // fetch user info
+      .sort({ createdAt: -1 }) // newest first
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      posts,
+      pagination: {
+        currentPage: page,
+        totalPages: totalPages,
+        totalPosts: total,
+        postsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    });
   } catch (error) {
     console.error("Error fetching posts:", error);
     res.status(500).json({ message: "Error fetching posts" });
@@ -67,8 +109,40 @@ const getAllPosts = async (req, res) => {
 const getUserPosts = async (req, res) => {
   try {
     const { id } = req.params; // user id
-    const posts = await Post.find({ user: id }).sort({ createdAt: -1 });
-    res.status(200).json(posts);
+
+    // Pagination parameters with validation
+    let page = parseInt(req.query.page) || 1;
+    let limit = parseInt(req.query.limit) || 10;
+
+    // Ensure positive values and cap limit
+    if (page < 1) page = 1;
+    if (limit < 1) limit = 10;
+    if (limit > 100) limit = 100; // Cap at 100 to prevent abuse
+
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination
+    const total = await Post.countDocuments({ user: id });
+    const totalPages = limit > 0 ? Math.ceil(total / limit) : 0;
+
+    // Fetch posts with pagination
+    const posts = await Post.find({ user: id })
+      .populate("user", "username avatarUrl")  // Populate user info
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      posts,
+      pagination: {
+        currentPage: page,
+        totalPages: totalPages,
+        totalPosts: total,
+        postsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    });
   } catch (error) {
     console.error("Error fetching user posts:", error);
     res.status(500).json({ message: "Error fetching user posts" });
@@ -90,19 +164,7 @@ const deletePost = async (req, res) => {
       return res.status(403).json({ message: "Not authorized to delete this post" });
     }
 
-    // Delete image from Cloudinary
-    if (post.imagePublicId) {
-      try {
-        await cloudinary.uploader.destroy(post.imagePublicId);
-      } catch (cloudinaryErr) {
-        console.error("Failed to delete image from Cloudinary:", cloudinaryErr);
-        // Continue with post deletion even if Cloudinary cleanup fails
-      }
-    }
-
-    // Delete all likes linked to this post
-    await Like.deleteMany({ post: id });
-    
+    // Delete post - pre-hook will handle Cloudinary cleanup, likes, and comments
     await post.deleteOne();
 
     res.status(200).json({ message: "Post deleted successfully" });

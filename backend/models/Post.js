@@ -31,5 +31,38 @@ const Post = new mongoose.Schema({
 
 }, { timestamps: true }) // Automatically adds createdAt and updatedAt fields
 
+// Pre-hook for cascade deletion when a post is deleted
+// This runs automatically before deleteOne is called on a document
+Post.pre('deleteOne', { document: true, query: false }, async function(next) {
+    try {
+        const postId = this._id;
+        
+        // Import models to avoid circular dependencies
+        const Like = require('./Likes');
+        const Comment = require('./Comment');
+        const cloudinary = require('../config/cloudinary');
+        
+        // 1. Delete post image from Cloudinary
+        if (this.imagePublicId) {
+            try {
+                await cloudinary.uploader.destroy(this.imagePublicId);
+            } catch (err) {
+                console.error('Failed to delete post image from Cloudinary:', err);
+            }
+        }
+        
+        // 2. Delete all likes for this post
+        await Like.deleteMany({ post: postId });
+        
+        // 3. Delete all comments for this post
+        await Comment.deleteMany({ post: postId });
+        
+        next();
+    } catch (error) {
+        console.error('Error in Post pre-delete hook:', error);
+        next(error);
+    }
+});
+
 // Export the Post model for use in other parts of the application
 module.exports = mongoose.model('Post', Post);

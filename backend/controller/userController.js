@@ -22,13 +22,54 @@ const updateUser = async (req, res) => {
         return res.status(403).json({ message: 'You can update only your account' });
 
     try {
+        // Whitelist: destructure only safe fields
+        const { displayName, bio, username } = req.body;
+        
+        const updates = {};
+        if (displayName !== undefined) updates.displayName = displayName;
+        if (bio !== undefined) updates.bio = bio;
+        
+        // Username with validation
+        if (username !== undefined) {
+            const trimmedUsername = username.trim().toLowerCase();
+            
+            // Validate username format
+            if (trimmedUsername.length < 3) {
+                return res.status(400).json({ message: 'Username must be at least 3 characters' });
+            }
+            if (trimmedUsername.length > 30) {
+                return res.status(400).json({ message: 'Username must be less than 30 characters' });
+            }
+            if (!/^[a-z0-9_]+$/.test(trimmedUsername)) {
+                return res.status(400).json({ message: 'Username can only contain letters, numbers, and underscores' });
+            }
+            
+            // Check if username already exists (and it's not the current user's username)
+            const existingUser = await User.findOne({ username: trimmedUsername });
+            if (existingUser && existingUser._id.toString() !== req.params.id) {
+                return res.status(400).json({ message: 'Username already taken' });
+            }
+            
+            updates.username = trimmedUsername;
+        }
+
+        // Validate at least one field present
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ message: 'No valid fields to update' });
+        }
+
         const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
-            { $set: req.body },
+            { $set: updates },
             { new: true }
         ).select('-hashPassword');
+        
         res.status(200).json(updatedUser);
     } catch (error) {
+        // Handle duplicate key error
+        if (error.code === 11000) {
+            return res.status(400).json({ message: 'Username already taken' });
+        }
         res.status(500).json({ message: error.message });
     }
 };
@@ -81,4 +122,107 @@ const deleteUser = async (req, res) => {
     }
 };
 
-module.exports = { getUser, updateUser, deleteUser, updateUserAvatar };
+// @desc Search users with pagination
+// @route GET /api/users/search
+// @access Private
+const searchUsers = async (req, res) => {
+    try {
+        // Pagination parameters with validation
+        let page = parseInt(req.query.page) || 1;
+        let limit = parseInt(req.query.limit) || 10;
+
+        // Ensure positive values and cap limit
+        if (page < 1) page = 1;
+        if (limit < 1) limit = 10;
+        if (limit > 100) limit = 100; // Cap at 100 to prevent abuse
+
+        const skip = (page - 1) * limit;
+
+        // Search parameter
+        const search = req.query.search || '';
+
+        // Build search query
+        let query = {};
+        if (search) {
+            query = {
+                $or: [
+                    { username: { $regex: search, $options: 'i' } },
+                    { displayName: { $regex: search, $options: 'i' } },
+                    { bio: { $regex: search, $options: 'i' } }
+                ]
+            };
+        }
+
+        // Get total count for pagination
+        const total = await User.countDocuments(query);
+        const totalPages = limit > 0 ? Math.ceil(total / limit) : 0;
+
+        // Fetch users with pagination (exclude password)
+        const users = await User.find(query)
+            .select('-hashPassword')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        res.status(200).json({
+            users,
+            pagination: {
+                currentPage: page,
+                totalPages: totalPages,
+                totalUsers: total,
+                usersPerPage: limit,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1
+            }
+        });
+    } catch (error) {
+        console.error('Error searching users:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc Get all users with pagination
+// @route GET /api/users
+// @access Private
+const getAllUsers = async (req, res) => {
+    try {
+        // Pagination parameters with validation
+        let page = parseInt(req.query.page) || 1;
+        let limit = parseInt(req.query.limit) || 10;
+
+        // Ensure positive values and cap limit
+        if (page < 1) page = 1;
+        if (limit < 1) limit = 10;
+        if (limit > 100) limit = 100; // Cap at 100 to prevent abuse
+
+        const skip = (page - 1) * limit;
+
+        // Get total count for pagination
+        const total = await User.countDocuments();
+        const totalPages = limit > 0 ? Math.ceil(total / limit) : 0;
+
+        // Fetch users with pagination (exclude password)
+        const users = await User.find()
+            .select('-hashPassword')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        res.status(200).json({
+            users,
+            pagination: {
+                currentPage: page,
+                totalPages: totalPages,
+                totalUsers: total,
+                usersPerPage: limit,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+module.exports = { getUser, updateUser, deleteUser, updateUserAvatar, searchUsers, getAllUsers };
