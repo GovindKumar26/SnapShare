@@ -1,15 +1,14 @@
-# Node
+# Node modules
 node_modules/
+
+# Environment variables
+.env
+
+# Uploads
+backend/upload/
 
 # Logs
 *.log
-
-# Environment
-.env
-
-# Build outputs
-dist/
-build/
 
 # OS files
 .DS_Store
