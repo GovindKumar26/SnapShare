@@ -54,7 +54,7 @@ const register = async (req, res) => {
         }
 
 
-        console.log("avatar is", avatarFile);
+        // console.log("avatar is", avatarFile);
 
 
         // const checkUser = await User.findOne({username});
