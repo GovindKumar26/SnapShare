@@ -109,7 +109,7 @@ const register = async (req, res) => {
         // );
 
         const {accessToken, refreshToken} = generateTokens(createdUser);
-        console.log(createdUser);
+      //  console.log(createdUser);
 
         res.cookie("accessToken", accessToken, {httpOnly : true, secure : process.env.NODE_ENV === 'production', maxAge : 24*60*60*1000});
 

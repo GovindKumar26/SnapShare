@@ -1,6 +1,27 @@
 const express = require('express');
-const dotenv = require('dotenv')
+const dotenv = require('dotenv');
+const cors = require('cors');
+
+// Load environment variables
 dotenv.config();
+
+// Validate required environment variables
+const requiredEnvVars = [
+    'JWT_SECRET',
+    'CLOUDINARY_NAME',
+    'CLOUDINARY_API_KEY', 
+    'CLOUDINARY_API_SECRET',
+    'MONGO_URI'
+];
+
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+    console.error('❌ Missing required environment variables:', missingEnvVars.join(', '));
+    console.error('Please check your .env file');
+    process.exit(1);
+}
+
 const cookieParser = require('cookie-parser');
 
 const dbConnect = require('./config/db.js');
@@ -16,6 +37,11 @@ const login = require('./controller/login.js');
 const app = express();
 
 app.use(cookieParser());
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    credentials : true  // Allow cookies
+}))
+
 
 
 
