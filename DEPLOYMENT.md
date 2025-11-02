@@ -55,20 +55,7 @@
 
 Click **"Advanced"** → **"Add Environment Variable"**
 
-Add these **EXACTLY** as shown:
 
-```
-CLOUDINARY_NAME=dnickne7q
-CLOUDINARY_API_KEY=563921117373874
-CLOUDINARY_API_SECRET=PUcdtbSKWZQyL9D22zXDgOL-O8g
-
-JWT_SECRET=kreeisyourgod123123123
-
-NODE_ENV=production
-
-MONGO_URI=mongodb+srv://kree:kreemongo123@cluster0.vrqmfvx.mongodb.net/snapshare?retryWrites=true&w=majority
-
-FRONTEND_URL=http://localhost:5173
 ```
 
 ⚠️ **Note:** Update `FRONTEND_URL` after deploying your frontend!
