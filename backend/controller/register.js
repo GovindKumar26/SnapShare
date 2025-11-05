@@ -111,9 +111,19 @@ const register = async (req, res) => {
         const {accessToken, refreshToken} = generateTokens(createdUser);
       //  console.log(createdUser);
 
-        res.cookie("accessToken", accessToken, {httpOnly : true, secure : process.env.NODE_ENV === 'production', maxAge : 24*60*60*1000});
+        res.cookie("accessToken", accessToken, {
+            httpOnly: true, 
+            secure: process.env.NODE_ENV === 'production', 
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            maxAge: 24*60*60*1000
+        });
 
-        res.cookie("refreshToken", refreshToken, {httpOnly : true, secure : process.env.NODE_ENV === 'production',maxAge: 7*24*60*60*1000});
+        res.cookie("refreshToken", refreshToken, {
+            httpOnly: true, 
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            maxAge: 7*24*60*60*1000
+        });
 
         return res.status(201).json({ message: "User created successfully", user: { id: createdUser._id, username, email, avatarUrl } });
 
