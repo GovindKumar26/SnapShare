@@ -21,6 +21,8 @@ const UserSchema = new mongoose.Schema({
     avatarPublicId : String,
     // Optional user bio
     bio : String,
+    // Optional website URL
+    website : String,
 }, {timestamps : true}) // Automatically adds createdAt and updatedAt fields
 
 // Pre-hook for cascade deletion when a user is deleted

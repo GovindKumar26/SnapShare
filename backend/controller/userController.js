@@ -16,6 +16,7 @@ const getUser = async (req, res) => {
 
 // @desc Update user
 // @route PUT /api/users/:id
+// @route PUT /api/users/complete-profile/:id (with avatar via multer)
 // @access Private
 const updateUser = async (req, res) => {
     if (req.user.id !== req.params.id)
@@ -23,11 +24,12 @@ const updateUser = async (req, res) => {
 
     try {
         // Whitelist: destructure only safe fields
-        const { displayName, bio, username } = req.body;
+        const { displayName, bio, username, website } = req.body;
         
         const updates = {};
         if (displayName !== undefined) updates.displayName = displayName;
         if (bio !== undefined) updates.bio = bio;
+        if (website !== undefined) updates.website = website;
         
         // Username with validation
         if (username !== undefined) {
@@ -51,6 +53,21 @@ const updateUser = async (req, res) => {
             }
             
             updates.username = trimmedUsername;
+        }
+
+        // Handle avatar upload if file is present (from multer middleware)
+        if (req.file && req.file.path) {
+            // Find user to check for old avatar
+            const user = await User.findById(req.params.id);
+            
+            // If user already has an avatar, delete it from Cloudinary
+            if (user && user.avatarPublicId) {
+                await cloudinary.uploader.destroy(user.avatarPublicId);
+            }
+            
+            // Add new avatar to updates
+            updates.avatarUrl = req.file.path;
+            updates.avatarPublicId = req.file.filename;
         }
 
         // Validate at least one field present

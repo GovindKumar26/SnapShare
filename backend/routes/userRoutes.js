@@ -18,6 +18,9 @@ router.get('/:id', verifyToken, getUser);
 router.put('/:id', verifyToken, updateUser);
 router.put('/update-avatar/:id', verifyToken, upload.single("avatar"), updateUserAvatar);
 
+// Complete profile (avatar + bio) - for signup step 2
+router.put('/complete-profile/:id', verifyToken, upload.single("avatar"), updateUser);
+
 // delete user
 router.delete('/:id', verifyToken, deleteUser);
 
