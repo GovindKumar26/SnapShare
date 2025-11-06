@@ -23,17 +23,14 @@ if (missingEnvVars.length > 0) {
 }
 
 const cookieParser = require('cookie-parser');
+const upload = require('./config/multer.js');
+const verifyToken = require('./middleware/verifyToken.js');
 
 const dbConnect = require('./config/db.js');
 const register = require('./controller/register.js');
-
-
-
-
-const upload = require('./config/multer.js');
-const verifyToken = require('./middleware/verifyToken.js');
-const logout = require('./controller/logout.js');
 const login = require('./controller/login.js');
+const logout = require('./controller/logout.js');
+const getCurrentUser = require('./controller/getCurrentUser.js');
 const app = express();
 
 app.use(cookieParser());
@@ -62,6 +59,7 @@ app.post('/register', upload.single("avatar"), register);
 
 app.post('/login', login);
 app.post('/logout', logout);
+app.get('/api/auth/me', verifyToken, getCurrentUser);
 
 
 
