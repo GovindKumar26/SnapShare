@@ -1,5 +1,11 @@
 const User = require("../models/User");
 
+// Helper function to generate default avatar URL based on user's name
+const generateDefaultAvatar = (displayName, username) => {
+    const name = displayName || username || "User";
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&size=200&background=random&color=fff&bold=true`;
+};
+
 const getCurrentUser = async (req, res) => {
     try {
         // req.user is set by verifyToken middleware
@@ -15,7 +21,7 @@ const getCurrentUser = async (req, res) => {
                 username: user.username,
                 email: user.email,
                 displayName: user.displayName,
-                avatarUrl: user.avatarUrl,
+                avatarUrl: user.avatarUrl || generateDefaultAvatar(user.displayName, user.username),
                 bio: user.bio,
                 website: user.website
             }

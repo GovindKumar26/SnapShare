@@ -1,6 +1,12 @@
 const User = require('../models/User');
 const cloudinary = require('../config/cloudinary'); // make sure you import it
 
+// Helper function to generate default avatar URL based on user's name
+const generateDefaultAvatar = (displayName, username) => {
+    const name = displayName || username || "User";
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&size=200&background=random&color=fff&bold=true`;
+};
+
 // @desc Get user profile
 // @route GET /api/users/:id
 // @access Private
@@ -8,7 +14,14 @@ const getUser = async (req, res) => {
     try {
         const user = await User.findById(req.params.id).select('-hashPassword'); // remove password
         if (!user) return res.status(404).json({ message: 'User not found' });
-        res.status(200).json(user);
+        
+        // Ensure avatarUrl is always present
+        const userResponse = user.toObject();
+        if (!userResponse.avatarUrl) {
+            userResponse.avatarUrl = generateDefaultAvatar(user.displayName, user.username);
+        }
+        
+        res.status(200).json(userResponse);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -181,8 +194,17 @@ const searchUsers = async (req, res) => {
             .skip(skip)
             .limit(limit);
 
+        // Ensure all users have avatarUrl
+        const usersWithAvatars = users.map(user => {
+            const userObj = user.toObject();
+            if (!userObj.avatarUrl) {
+                userObj.avatarUrl = generateDefaultAvatar(user.displayName, user.username);
+            }
+            return userObj;
+        });
+
         res.status(200).json({
-            users,
+            users: usersWithAvatars,
             pagination: {
                 currentPage: page,
                 totalPages: totalPages,
@@ -225,8 +247,17 @@ const getAllUsers = async (req, res) => {
             .skip(skip)
             .limit(limit);
 
+        // Ensure all users have avatarUrl
+        const usersWithAvatars = users.map(user => {
+            const userObj = user.toObject();
+            if (!userObj.avatarUrl) {
+                userObj.avatarUrl = generateDefaultAvatar(user.displayName, user.username);
+            }
+            return userObj;
+        });
+
         res.status(200).json({
-            users,
+            users: usersWithAvatars,
             pagination: {
                 currentPage: page,
                 totalPages: totalPages,

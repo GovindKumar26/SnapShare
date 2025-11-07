@@ -1,9 +1,15 @@
 const User = require("../models/User");
-const DEFAULT_AVATAR_URL = "https://res.cloudinary.com/demo/image/upload/v1234567890/default-avatar.png";
 
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcrypt');
 const cloudinary = require('../config/cloudinary')
+
+// Helper function to generate default avatar URL based on user's name
+const generateDefaultAvatar = (displayName, username) => {
+    const name = displayName || username || "User";
+    // UI Avatars service - generates colorful avatars with initials
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&size=200&background=random&color=fff&bold=true`;
+}
 
 const generateTokens = (createdUser)=>{
   const accessToken = jwt.sign(
@@ -43,7 +49,7 @@ const register = async (req, res) => {
         let avatarFile = req.file;
         //  console.log(req.file);
 
-       const avatarUrl = req.file ? req.file.path : DEFAULT_AVATAR_URL;
+       const avatarUrl = req.file ? req.file.path : generateDefaultAvatar(displayName, username);
 
       //  const avatarPublicId = req.file ? req.file.filename : "";
         const avatarPublicId = req.file ? req.file.filename : null;
