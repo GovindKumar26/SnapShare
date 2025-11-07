@@ -52,6 +52,8 @@ const createPost = async (req, res) => {
 
 const getAllPosts = async (req, res) => {
   try {
+    const userId = req.user?.id || req.user?._id;
+    
     // Pagination parameters with validation
     let page = parseInt(req.query.page) || 1;
     let limit = parseInt(req.query.limit) || 10;
@@ -88,8 +90,27 @@ const getAllPosts = async (req, res) => {
       .skip(skip)
       .limit(limit);
 
+    // Get all post IDs to check which ones the current user has liked
+    const postIds = posts.map(post => post._id);
+    const userLikes = await Like.find({ user: userId, post: { $in: postIds } }).select('post');
+    const likedPostIds = new Set(userLikes.map(like => like.post.toString()));
+
+    // Add likedByMe field to each post
+    const postsWithLikeStatus = posts.map(post => ({
+      _id: post._id,
+      title: post.title,
+      caption: post.caption,
+      imageUrl: post.imageUrl,
+      imagePublicId: post.imagePublicId,
+      user: post.user,
+      likeCount: post.likeCount,
+      likedByMe: likedPostIds.has(post._id.toString()),
+      createdAt: post.createdAt,
+      updatedAt: post.updatedAt
+    }));
+
     res.status(200).json({
-      posts,
+      posts: postsWithLikeStatus,
       pagination: {
         currentPage: page,
         totalPages: totalPages,
@@ -109,6 +130,7 @@ const getAllPosts = async (req, res) => {
 const getUserPosts = async (req, res) => {
   try {
     const { id } = req.params; // user id
+    const userId = req.user?.id || req.user?._id;
 
     // Pagination parameters with validation
     let page = parseInt(req.query.page) || 1;
@@ -132,8 +154,27 @@ const getUserPosts = async (req, res) => {
       .skip(skip)
       .limit(limit);
 
+    // Get all post IDs to check which ones the current user has liked
+    const postIds = posts.map(post => post._id);
+    const userLikes = await Like.find({ user: userId, post: { $in: postIds } }).select('post');
+    const likedPostIds = new Set(userLikes.map(like => like.post.toString()));
+
+    // Add likedByMe field to each post
+    const postsWithLikeStatus = posts.map(post => ({
+      _id: post._id,
+      title: post.title,
+      caption: post.caption,
+      imageUrl: post.imageUrl,
+      imagePublicId: post.imagePublicId,
+      user: post.user,
+      likeCount: post.likeCount,
+      likedByMe: likedPostIds.has(post._id.toString()),
+      createdAt: post.createdAt,
+      updatedAt: post.updatedAt
+    }));
+
     res.status(200).json({
-      posts,
+      posts: postsWithLikeStatus,
       pagination: {
         currentPage: page,
         totalPages: totalPages,
