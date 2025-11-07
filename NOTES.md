@@ -766,5 +766,190 @@ GET /api/users/search/users?search=john&page=1&limit=10
 
 ---
 
-**Last Updated:** November 1, 2025
-**Status:** Backend 90% production-ready. Pagination & search implemented. See API_DOCUMENTATION.md for full details.
+## Default User Avatars (UI Avatars Service)
+
+### Overview
+
+SnapShare uses UI Avatars (https://ui-avatars.com/) to generate default profile pictures for users who haven't uploaded a custom avatar. This ensures a professional appearance and consistent UX across the application.
+
+### Why UI Avatars?
+
+1. **No Storage Required:** Avatars generated on-demand via URL
+2. **Personalized:** Shows user's initials based on their name
+3. **Free Service:** No API key or authentication required
+4. **Consistent:** Same name always generates same avatar (consistent colors)
+5. **Professional Look:** Modern, colorful avatars with good contrast
+
+### Implementation
+
+#### Helper Function (Reusable Across Controllers)
+```javascript
+const generateDefaultAvatar = (displayName, username) => {
+    const name = displayName || username || "User";
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&size=200&background=random&color=fff&bold=true`;
+};
+```
+
+#### URL Parameters Explained
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| `name` | User's display name or username | Text to extract initials from |
+| `size` | `200` | Image size (200x200 pixels) |
+| `background` | `random` | Random color based on name hash |
+| `color` | `fff` | White text color (hex without #) |
+| `bold` | `true` | Bold font for better readability |
+
+#### Additional Available Parameters (Not Used)
+- `font-size` - Custom font size (default: 0.5 of image size)
+- `length` - Number of initials (default: 2)
+- `rounded` - Boolean for circular avatar
+- `uppercase` - Force uppercase (default: true)
+- `format` - Image format (png, svg)
+
+### Where It's Used
+
+#### 1. User Registration (`controller/register.js`)
+Sets default avatar when user signs up without uploading one:
+```javascript
+const avatarUrl = req.file 
+  ? req.file.path 
+  : generateDefaultAvatar(displayName, username);
+```
+
+#### 2. Get Current User (`controller/getCurrentUser.js`)
+Ensures `/api/auth/me` always returns a valid avatar:
+```javascript
+avatarUrl: user.avatarUrl || generateDefaultAvatar(user.displayName, user.username)
+```
+
+#### 3. User Controller (`controller/userController.js`)
+Three endpoints enhanced with default avatars:
+
+**a) Get Single User (`getUser`):**
+```javascript
+const userObj = user.toObject();
+if (!userObj.avatarUrl) {
+  userObj.avatarUrl = generateDefaultAvatar(user.displayName, user.username);
+}
+```
+
+**b) Search Users (`searchUsers`):**
+```javascript
+const usersWithAvatars = users.map(user => {
+  const userObj = user.toObject();
+  if (!userObj.avatarUrl) {
+    userObj.avatarUrl = generateDefaultAvatar(user.displayName, user.username);
+  }
+  return userObj;
+});
+```
+
+**c) Get All Users (`getAllUsers`):**
+Same pattern as searchUsers.
+
+### Example Generated URLs
+
+**Display name: "John Doe"**
+```
+https://ui-avatars.com/api/?name=John%20Doe&size=200&background=random&color=fff&bold=true
+```
+→ Shows initials "JD" on colored background
+
+**Username: "alice_chen"**
+```
+https://ui-avatars.com/api/?name=alice_chen&size=200&background=random&color=fff&bold=true
+```
+→ Shows initials "AC" on colored background
+
+**Single word: "Alex"**
+```
+https://ui-avatars.com/api/?name=Alex&size=200&background=random&color=fff&bold=true
+```
+→ Shows initial "A" on colored background
+
+### Database Schema
+
+The User model's `avatarUrl` field remains **optional**:
+```javascript
+{
+  avatarUrl: { type: String },  // Optional - no default in schema
+  avatarPublicId: { type: String }
+}
+```
+
+**Why no default in schema?**
+- Allows distinguishing between uploaded vs generated avatars
+- Generated avatars don't need Cloudinary cleanup
+- Backend generates default at response time (not storage time)
+- Flexibility: Can change default avatar service without DB migration
+
+### Cloudinary vs UI Avatars
+
+| Aspect | Uploaded Avatar | Generated Avatar |
+|--------|----------------|------------------|
+| **Source** | User uploads file | UI Avatars service |
+| **Storage** | Cloudinary | None (generated on-demand) |
+| **Cost** | Counts toward Cloudinary quota | Free |
+| **Field** | `avatarUrl` = Cloudinary URL | `avatarUrl` = UI Avatars URL or null |
+| **Public ID** | `avatarPublicId` = Cloudinary ID | `avatarPublicId` = null |
+| **Cleanup** | Must delete from Cloudinary | No cleanup needed |
+
+### When to Delete From Cloudinary
+
+**Only delete if `avatarPublicId` exists:**
+```javascript
+if (user.avatarPublicId) {
+  await cloudinary.uploader.destroy(user.avatarPublicId);
+}
+```
+
+This check ensures:
+- ✅ Uploaded avatars get deleted from Cloudinary
+- ✅ Generated avatars (no publicId) are skipped
+- ✅ No errors from trying to delete non-existent Cloudinary images
+
+### Advantages
+
+1. **Consistent UX:** Every user always has a visible avatar
+2. **No Broken Images:** No 404 errors or placeholder icons
+3. **Personalization:** Unique avatar for each user based on name
+4. **Professional Appearance:** App looks polished from the start
+5. **Zero Storage Cost:** No Cloudinary quota used for default avatars
+6. **Backwards Compatible:** Works for existing users without avatars
+
+### Frontend Integration
+
+Avatar component should simply display whatever `avatarUrl` backend provides:
+```jsx
+<Avatar>
+  <AvatarImage src={user.avatarUrl} alt={user.username} />
+  <AvatarFallback>{user.username?.[0]?.toUpperCase()}</AvatarFallback>
+</Avatar>
+```
+
+**No frontend logic needed** - backend handles default avatar generation.
+
+### Testing Scenarios
+
+1. **New user without avatar:**
+   - Register → `avatarUrl` = UI Avatars URL
+   - Login → See generated avatar
+
+2. **New user with avatar:**
+   - Register with file → `avatarUrl` = Cloudinary URL
+   - Login → See uploaded avatar
+
+3. **Existing user without avatar:**
+   - Fetch profile → Backend adds generated avatar
+   - See initials-based avatar
+
+4. **User updates avatar:**
+   - Upload new avatar → Old Cloudinary avatar deleted (if exists)
+   - New `avatarUrl` = new Cloudinary URL
+   - See new uploaded avatar
+
+---
+
+**Last Updated:** November 7, 2025
+**Status:** Backend 90% production-ready. Pagination & search implemented. Default avatars active. See API_DOCUMENTATION.md for full details.

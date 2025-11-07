@@ -353,3 +353,116 @@ Common status codes:
 - `400`: Bad request (invalid parameters)
 - `401`: Unauthorized (no token)
 - `500`: Server error
+
+---
+
+## Default Avatar System
+
+### Overview
+
+SnapShare automatically generates default avatars for users who haven't uploaded a custom profile picture using the UI Avatars service (https://ui-avatars.com/).
+
+### How It Works
+
+**When a user registers without an avatar:**
+- `avatarUrl` is set to a generated URL based on their display name or username
+- No Cloudinary storage is used
+- `avatarPublicId` remains `null`
+
+**Example generated URL:**
+```
+https://ui-avatars.com/api/?name=John%20Doe&size=200&background=random&color=fff&bold=true
+```
+
+### Avatar URL Types
+
+All user-related endpoints return an `avatarUrl` field that can be one of two types:
+
+| Type | Example | Storage | Public ID |
+|------|---------|---------|-----------|
+| **Uploaded** | `https://res.cloudinary.com/...` | Cloudinary | Has value |
+| **Generated** | `https://ui-avatars.com/api/?name=...` | None | `null` |
+
+### Affected Endpoints
+
+The following endpoints automatically include default avatars if user hasn't uploaded one:
+
+#### 1. User Registration
+```
+POST /api/users/register
+```
+If no avatar file is uploaded, `avatarUrl` is set to generated URL.
+
+#### 2. Get Current User
+```
+GET /api/auth/me
+```
+Response includes `avatarUrl` (uploaded or generated).
+
+#### 3. Get User Profile
+```
+GET /api/users/:id
+```
+Response includes `avatarUrl` (uploaded or generated).
+
+#### 4. Search Users
+```
+GET /api/users/search/users
+```
+All users in results have `avatarUrl` (uploaded or generated).
+
+#### 5. Get All Users
+```
+GET /api/users/all/users
+```
+All users in results have `avatarUrl` (uploaded or generated).
+
+#### 6. Get Posts (populated user)
+```
+GET /api/posts
+GET /api/posts/user/:id
+```
+Posts include populated user with `avatarUrl` (uploaded or generated).
+
+### Frontend Handling
+
+**No special logic needed** - simply display the `avatarUrl`:
+
+```javascript
+// React example
+<img src={user.avatarUrl} alt={user.username} />
+
+// Avatar component
+<Avatar>
+  <AvatarImage src={user.avatarUrl} alt={user.username} />
+  <AvatarFallback>{user.username?.[0]?.toUpperCase()}</AvatarFallback>
+</Avatar>
+```
+
+### Generated Avatar Features
+
+- **Personalized:** Shows user's initials (e.g., "JD" for "John Doe")
+- **Colorful:** Random background color based on name (consistent per user)
+- **Professional:** 200x200px, white text, bold font
+- **No Cost:** Generated on-demand, no storage quota used
+
+### Cleanup Behavior
+
+When deleting a user or updating their avatar:
+- **Uploaded avatar:** Deleted from Cloudinary (uses `avatarPublicId`)
+- **Generated avatar:** No cleanup needed (no storage used)
+
+```javascript
+// Backend automatically handles this
+if (user.avatarPublicId) {
+  await cloudinary.uploader.destroy(user.avatarPublicId);
+}
+```
+
+### Migration Note
+
+Existing users without `avatarUrl` will automatically receive a generated avatar when their profile is fetched. No database migration required.
+
+---
+
+**Last Updated:** November 7, 2025
